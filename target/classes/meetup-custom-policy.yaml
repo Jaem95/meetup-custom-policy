@@ -1,0 +1,24 @@
+id: validateSchedule
+name: Validate the time when the API is requested
+description: Validates that the API was requested in the schedule defined by the admin.
+category: Security
+type: custom
+standalone: true
+gatewayCompatibility: '>=2.2.0'
+requiresConnectivity: false
+requiredCharacteristics: []
+providedCharacteristics: []
+configuration:
+  - propertyName: timeRange
+    name: Time Range
+    defaultValue: "09:00-17:00"
+    description: Time Range when the API must be requested.
+    type: string
+    optional: false
+    allowMultiple: false
+  - propertyName: query
+    name: MEL query
+    description: MEL query expression to be used for filtering messages
+    type: expression
+    sensitive: false
+    optional: false

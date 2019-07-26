@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<policy xmlns="http://www.mulesoft.org/schema/mule/policy"
+	xmlns:mule="http://www.mulesoft.org/schema/mule/core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking"
+	xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
+	xmlns:encryption="http://www.mulesoft.org/schema/mule/encryption"
+	xmlns:json="http://www.mulesoft.org/schema/mule/json"
+	xmlns:api-platform-gw="http://www.mulesoft.org/schema/mule/api-platform-gw"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:spring="http://www.springframework.org/schema/beans"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/policy http://www.mulesoft.org/schema/mule/policy/current/mule-policy.xsd 
+						http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd					
+						http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd	
+						http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
+						http://www.mulesoft.org/schema/mule/api-platform-gw http://www.mulesoft.org/schema/mule/api-platform-gw/current/mule-api-platform-gw.xsd	
+						http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+						http://www.mulesoft.org/schema/mule/encryption http://www.mulesoft.org/schema/mule/encryption/current/mule-encryption.xsd						
+						http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+						http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+						http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+						http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<pointcut>
+		<api-platform-gw:api-pointcut apiName="{{ apiName }}"
+			apiVersion="{{ apiVersionName }}" />
+	</pointcut>
+	<spring:beans>
+		<spring:bean id="ScheduleValidation" name="ScheduleValidation"
+			class="com.jaem.utilities.ScheduleValidation" scope="prototype">
+			<spring:property name="timeRange" value="{{timeRange}}"></spring:property>
+		</spring:bean>
+	</spring:beans>
+
+	<before>
+		<mule:logger level="INFO"
+			message="...................Validation Policy Start..................." />
+		<mule:processor-chain name="before-chain">
+			<dw:transform-message doc:name="Transform Message">
+				<dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"beforeMessage":"Hi Meetup, this is a payload from the policy"
+}]]></dw:set-payload>
+			</dw:transform-message>
+		</mule:processor-chain>
+		<mule:message-filter onUnaccepted="policyViolation">
+			<mule:filter ref="ScheduleValidation"></mule:filter>
+		</mule:message-filter>
+
+		<mule:set-variable variableName="evaluated" value="{{ query }}" />
+		<mule:message-filter onUnaccepted="policyViolationByMel">
+			<mule:expression-filter expression="#[evaluated == true]"/>
+		</mule:message-filter>
+
+
+	</before>
+
+	<after>
+		<mule:processor-chain name="after-chain">
+			<dw:transform-message doc:name="Transform Message">
+				<dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload ++ { afterMessage:"Thanks Meetup"}]]></dw:set-payload>
+			</dw:transform-message>
+			<mule:set-property propertyName="Custom-Header"
+				value="MeetupPolicy" />
+		</mule:processor-chain>
+		<mule:logger level="INFO"
+			message="...................Validation Policy End..................." />
+	</after>
+
+
+	<mule:processor-chain name="policyViolation">
+		<mule:set-property propertyName="Content-Type"
+			value="application/json" />
+		<mule:set-property propertyName="http.status" value="403" />
+		<mule:set-payload
+			value='{ "error" : "Custom Policy Message: Sorry but you are requesting the API  out of time, you must request in a range of {{timeRange}}"}' />
+		<mule:logger level="INFO"
+			message="...................Validation Policy End in Fail..................." />
+	</mule:processor-chain>
+
+	<mule:processor-chain name="policyViolationByMel">
+		<mule:set-property propertyName="http.status" value="403" />
+		<mule:set-property propertyName="Content-Type"
+			value="application/json" />
+		<mule:set-payload
+			value='{ "error" : "Custom Policy Message: Sorry you must agree with the query MEL expression "}' />
+	</mule:processor-chain>
+</policy>
